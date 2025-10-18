@@ -1,0 +1,64 @@
+name: Deploy Javadoc
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # if you have a protection rule on your repository, you'll need to give write permission to the workflow.
+      deployments: write
+    steps:
+      # Step 1: Get first deployment ID
+      - name: Get Deployment ID
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DEPLOYMENT_ID=$(curl -s -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          https://api.github.com/repos/fishmaniac/Pharmacy-Management-System/deployments \
+          | jq -r '.[0].id')
+
+          echo "DEPLOYMENT_ID=$DEPLOYMENT_ID" >> $GITHUB_ENV
+
+      # Step 2: Set deployment as inactive to allow it to be deleted
+      - name: Set deployment as inactive
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/fishmaniac/Pharmacy-Management-System/deployments/$DEPLOYMENT_ID/statuses \
+            -d '{ "state":"inactive", "description":"Updated to inactive by JavaDocs deploy action."}'
+
+      # Step 3: Delete old deployments
+      - name: Delete Old Deployment
+        if: env.DEPLOYMENT_ID != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -L \
+               -X DELETE \
+               -H "Accept: application/vnd.github+json" \
+               -H "Authorization: Bearer $GITHUB_TOKEN" \
+               -H "X-GitHub-Api-Version: 2022-11-28" \
+              https://api.github.com/repos/fishmaniac/Pharmacy-Management-System/deployments/$DEPLOYMENT_ID
+
+      # Step 4: Deploy JavaDoc to GitHub pages
+      - name: Deploy JavaDoc
+        uses: MathieuSoysal/Javadoc-publisher.yml@v2.5.0
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          javadoc-branch: javadoc
+          java-version: 21
+          javadoc-source-folder: docs
+          target-folder: docs
+          project: maven
+          custom-command: javadoc -d docs -subpackages PharmacyManagementSystem -windowtitle "Pharmacy Management System" -doctitle "Pharmacy Management System" -private

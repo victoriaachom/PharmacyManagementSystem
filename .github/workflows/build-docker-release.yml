@@ -1,0 +1,49 @@
+name: CI-Release-Main
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Log in to GitHub Container Registry (GHCR)
+      - name: Login to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 3: Pull Docker image from GHCR
+      - name: Pull Docker image
+        run: docker pull ghcr.io/fishmaniac/pharmacy-management-system/ubuntu-java:latest
+
+      # Step 4: Build application inside Docker container
+      - name: Build Pharmacy Management system
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            ghcr.io/fishmaniac/pharmacy-management-system/ubuntu-java:latest \
+            /bin/bash -c "
+              echo 'Starting Build Process...'
+              java -version
+              ls -althr
+              ./build.sh  # Adjust this to your actual build script or commands
+            "
+      # TODO: Add tests here
+
+      # Step 5: Deploy Jar file to releases
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: main-release
+          files: "*.jar"

@@ -1,0 +1,10 @@
+build/
+*.class
+
+.settings/
+.classpath
+.project
+
+docs/
+
+PharmacyManagementSystem.jar
